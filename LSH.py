@@ -1,7 +1,6 @@
 ### incorporating multiple tables
 import numpy as np
 import pandas as pd
-
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.datasets import load_digits, load_iris
 from sklearn.metrics import accuracy_score
@@ -51,7 +50,7 @@ class lsh:
             # key_idx represents the document index in original data. We need to preserve this info before sorting the
             # points in one bucket based on their distances from randomly projected vectors.
             for key in sorted_keys:  #(dist,key,key_idx)
-                hash_table[key[1]].append((key[0],key[2]))
+                hash_table[key[1]].append((key[0],key[2]))  # (distance, doc_idx) <<<<<<<< very important
                 # each key:value pair in hash table looks like this
                 # '01':[(euclidean_dist, document_idx_in_data), () ,() , ......]
                 # '01' is a bucket, in which a document might be present in.
@@ -71,13 +70,13 @@ class lsh:
         return self.hash_tables
 
     def hash_table_dist(self):
-        distribuitions = []
+        distributions = []
         for hash_table in self.hash_tables:
             summary_of_table = {}
             for k, v in hash_table.items():
                 summary_of_table[k] = len(v)
-            distribuitions.append(summary_of_table)
-        return distribuitions
+            distributions.append(summary_of_table)
+        return distributions
 
     def query(self, query_data):
         key_for_each_table = []
@@ -91,5 +90,54 @@ class lsh:
                 result.extend(hash_table[key])
         #         print(keys_for_each_table)
         return list(set(result))
+
+    def fast_query(self, query_data):
+        if len(query_data.shape) == 1:
+            query_data = query_data.reshape((1,-1))
+        euc_dist_with_key_for_each_table = []
+        for rand_vec in self.random_vectors:
+            distance_matrix = np.dot(query_data, rand_vec.T)
+            euclidean_dist = np.sqrt(np.sum(distance_matrix ** 2, axis=1))
+            key = list(map(self.make_hash_key, (distance_matrix > 0).astype('int').astype('str')))
+            euc_dist_with_key_for_each_table.append((euclidean_dist[0],key[0]))
+            # each point will be assigned to exactly on bucket in one hash table.
+            # euc_dist_with_key_for_each_table is a list of tuple-->
+            # [(key in hash table, euclidean distance from rand vector), (), ...]
+        result = []
+        assert len(euc_dist_with_key_for_each_table) == len(self.hash_tables), 'Some data point is not assigned to any bucket in a hash table'
+        for hash_table, distance_key_tuple, in zip(self.hash_tables, euc_dist_with_key_for_each_table):
+            # print('<<<<<<<<<<<',euc_dist_with_key_for_each_table)
+            distance = distance_key_tuple[0]
+            print('query_distance', distance)
+            key = distance_key_tuple[1]
+            if key in hash_table.keys():
+                # now use the key( or bucket) of each hash table, along with euclidean distance from random projection
+                # vectors to find the most similar items to the query doc, instead of exhaustive search.
+                # Using binary search on distances.
+                bucket_elements = hash_table[key]
+                print('bucket_elements', bucket_elements)
+                candidates = self.binary_search(arr=bucket_elements,query_distance=distance,max_k=5)
+
+                print('candidates',candidates)
+                result.extend(candidates)
+        result_doc_idexes = [tupl[1] for tupl in result]
+        return list(set(result_doc_idexes))
+
+    def binary_search(self,arr,query_distance,max_k):
+        mid = len(arr)//2
+        if arr[mid][0] > query_distance:
+            arr = arr[:mid]
+            if len(arr) <= max_k:
+                return arr
+            else:
+                return self.binary_search(arr, query_distance, max_k)
+        if arr[mid][0] < query_distance:
+            arr = arr[mid:]
+            if len(arr) <= max_k:
+                return arr
+            else:
+                return self.binary_search(arr,query_distance,max_k)
+
+
 
 
