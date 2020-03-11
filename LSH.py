@@ -108,17 +108,17 @@ class lsh:
         for hash_table, distance_key_tuple, in zip(self.hash_tables, euc_dist_with_key_for_each_table):
             # print('<<<<<<<<<<<',euc_dist_with_key_for_each_table)
             distance = distance_key_tuple[0]
-            print('query_distance', distance)
+            # print('query_distance', distance)
             key = distance_key_tuple[1]
             if key in hash_table.keys():
                 # now use the key( or bucket) of each hash table, along with euclidean distance from random projection
                 # vectors to find the most similar items to the query doc, instead of exhaustive search.
                 # Using binary search on distances.
                 bucket_elements = hash_table[key]
-                print('bucket_elements', bucket_elements)
+                # print('bucket_elements', bucket_elements)
                 candidates = self.binary_search(arr=bucket_elements,query_distance=distance,max_k=5)
 
-                print('candidates',candidates)
+                # print('candidates',candidates)
                 result.extend(candidates)
         result_doc_idexes = [tupl[1] for tupl in result]
         return list(set(result_doc_idexes))
