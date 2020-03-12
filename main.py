@@ -94,8 +94,8 @@ def main():
 
 
 def main_2():
-    x_train, y_train, x_test, y_test = load_mnist_data(num_samples=3000, test_size=0.1)
-    lsh = lsh_(hash_size=12, data_dim=x_train.shape[1], num_tables=10)
+    x_train, y_train, x_test, y_test = load_mnist_data(num_samples=30000, test_size=0.1)
+    lsh = lsh_(hash_size=12, data_dim=x_train.shape[1], num_tables=30)
     t1 = time.time()
     lsh.fit(x_train)
     print('total time taken for fitting', time.time() - t1)
