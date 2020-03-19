@@ -17,15 +17,17 @@ class lsh:
         self.random_vectors = []
         for seed in self.seeds:
             np.random.seed(seed)
-            self.random_vectors.append(self.gen_random_vectors(random_type='normal'))
+            self.random_vectors.append(self.gen_random_vectors(random_type='normal_gpu'))
             # np.random.randint(low=0, high=255, size=(self.num_rand_vec, self.dim))
             #
+        print('TENSORFLOW GPU $$$$$$$$$$$$$ available GPU is -->>,',tf.test.gpu_device_name())
 
     def gen_random_vectors(self,random_type=None):
         if random_type is None:
+            # sample from random_normal distribution by default
             return np.random.randn(self.num_rand_vec, self.dim)
-        if random_type == 'normal':
-            return np.random.randn(self.num_rand_vec, self.dim)
+        if random_type == 'normal_gpu':
+            return tf.random_normal((self.num_rand_vec, self.dim)).eval(session=tf.compat.v1.Session())
         if random_type == 'uniform':
             return np.random.rand(self.num_rand_vec, self.dim)
 
@@ -35,17 +37,18 @@ class lsh:
     def fit(self,data):
         assert data.shape[1] == self.dim, 'dimension of input data is {} and dimension in LSH object is {}'.format(
             data.shape, self.dim)
-        sess = tf.Session()
-        data_ph = tf.placeholder("float", [None, self.dim])
-        rand_hash_vec_ph = tf.placeholder("float", [None, self.dim])
-        distance_matrix_ = tf.matmul(data_ph,tf.transpose(rand_hash_vec_ph))
-        euclidean_dist_ = tf.sqrt(tf.reduce_sum(distance_matrix_ ** 2, axis=1))
+        # sess = tf.Session()
+        sess = tf.InteractiveSession()
+        # data_ph = tf.placeholder("float", [None, self.dim])
+        data_ph = tf.convert_to_tensor(data,dtype=tf.float32)
+
         for rand_vec, hash_table in zip(self.random_vectors, self.hash_tables):
-            # print(type(rand_vec), 'data type of rand_vec')
-            # print(rand_vec.shape, 'shape ')
-            distance_matrix,euclidean_dist = sess.run([distance_matrix_, euclidean_dist_],
-                                                      feed_dict={data_ph: data,
-                                                       rand_hash_vec_ph: rand_vec})
+            rand_hash_vec_ph = rand_vec
+            distance_matrix_ = tf.matmul(data_ph, tf.transpose(rand_hash_vec_ph))
+            euclidean_dist_ = tf.sqrt(tf.reduce_sum(distance_matrix_ ** 2, axis=1))
+            distance_matrix,euclidean_dist = sess.run([distance_matrix_, euclidean_dist_],)
+                                                      # feed_dict={data_ph: data,
+                                                      #  rand_hash_vec_ph: rand_vec})
             keys = list(map(self.make_hash_key, (distance_matrix > 0).astype('int').astype('str')))
             # print('euclidean dist', (distance_matrix > 0).astype('int'))
 
@@ -153,7 +156,6 @@ class lsh:
                 bucket_elements = hash_table[key]
                 # print('bucket_elements', bucket_elements)
                 candidates = self.binary_search(arr=bucket_elements,query_distance=distance,max_k=5)
-
                 # print('candidates',candidates)
                 result.extend(candidates)
         result_doc_idexes = [tupl[1] for tupl in result]

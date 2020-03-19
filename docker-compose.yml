@@ -1,0 +1,12 @@
+version: '2'
+
+services:
+    python_server:
+        build:
+            dockerfile: dockerfile
+            context: .
+        volumes:
+            - /home/gurmukh/LSH_implementation/docker-vol:/app/docker-vol
+            - ../logs:/app/static
+#        ports:
+#            - '8081:80'

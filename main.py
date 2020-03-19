@@ -5,8 +5,7 @@ from LSH import lsh as lsh_
 from LSH_TF import lsh as lsh_tf
 import time
 from sklearn.metrics.pairwise import cosine_similarity
-import nearpy
-
+# import nearpy
 
 def load_mnist_data(num_samples,test_size=0.1):
     print('loading data')
