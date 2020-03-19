@@ -1,6 +1,6 @@
 run 'ubuntu-drivers devices' in terminal
-see which version of nvidia drivers is recommended --screenshot
-sudo apt install -y nvidia-driver-440
+see which version of nvidia drivers is recommended
+sudo apt install -y nvidia-driver-440 (recommended driver)
 reboot
 type nvidia-smi, it should list available GPU memory, and other info
 
@@ -24,3 +24,5 @@ docker run --runtime=nvidia --rm nvidia/cuda nvidia-smi
 , no more trouble with cuda/cudnn/gcc version…
 
 docker run --runtime=nvidia --rm -ti -v "${PWD}:/app" tensorflow/tensorflow:latest-gpu-jupyter
+or bush docker-build.sh
+docker exec -it DOCKER_CONTAINER_ID /bin/bash
