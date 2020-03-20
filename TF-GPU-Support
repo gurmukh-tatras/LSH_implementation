@@ -21,8 +21,22 @@ sudo pkill -SIGHUP dockerd
 docker run --runtime=nvidia --rm nvidia/cuda nvidia-smi
 # the output should be similar to what you get by running nvidia-smi command in terminal .
  the only thing you need from your OS is the nvidia driver
-, no more trouble with cuda/cudnn/gcc version…
+, no more trouble with cuda/cudnn/gcc version
+-----------------------------------------------------------
+#benchmarking
+docker run --runtime=nvidia --rm -ti -v "${PWD}:/app" tensorflow/tensorflow:latest-gpu-jupyter python /app/benchmark.py cpu 10000
+docker run --runtime=nvidia --rm -ti -v "${PWD}:/app" tensorflow/tensorflow:latest-gpu-jupyter python /app/benchmark.py gpu 10000
 
 docker run --runtime=nvidia --rm -ti -v "${PWD}:/app" tensorflow/tensorflow:latest-gpu-jupyter
 or bush docker-build.sh
 docker exec -it DOCKER_CONTAINER_ID /bin/bash
+
+
+
+
+
+
+
+
+
+

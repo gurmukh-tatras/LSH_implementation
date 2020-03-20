@@ -1,11 +1,11 @@
-FROM  tensorflow/tensorflow:latest-gpu-jupyter
+FROM tensorflow/tensorflow:latest-gpu
 
-RUN apt-get update && apt-get install -y python3-pip
+RUN apt-get update && apt-get install -y python-pip
 
-RUN pip3 install numpy
-RUN pip3 install pandas
-RUN pip3 install sklearn
-RUN pip3 install tensorflow-gpu
+RUN pip install numpy
+RUN pip install pandas
+RUN pip install sklearn
+# RUN pip install tensorflow-gpu
 # RUN pip install celery
 # RUN pip install redis
 # RUN pip install pillow
@@ -17,3 +17,4 @@ RUN pip3 install tensorflow-gpu
 
 WORKDIR /app/
 COPY . .
+RUN python main.py

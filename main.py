@@ -97,8 +97,8 @@ def main():
 
 
 def main_2():
-    x_train, y_train, x_test, y_test = load_mnist_data(num_samples=70000, test_size=0.1)
-    lsh = lsh_(hash_size=12, data_dim=x_train.shape[1], num_tables=200)
+    x_train, y_train, x_test, y_test = load_mnist_data(num_samples=7000, test_size=0.1)
+    lsh = lsh_(hash_size=8, data_dim=x_train.shape[1], num_tables=5)
     t1 = time.time()
     lsh.fit(x_train)
     print('total time taken for fitting', time.time() - t1)
@@ -109,8 +109,8 @@ def main_2():
 
 
 def main_tf():
-    x_train, y_train, x_test, y_test = load_mnist_data(num_samples=70000, test_size=0.1)
-    lsh = lsh_tf(hash_size=8, data_dim=x_train.shape[1], num_tables=5)
+    x_train, y_train, x_test, y_test = load_mnist_data(num_samples=7000, test_size=0.1)
+    lsh = lsh_tf(hash_size=8, data_dim=x_train.shape[1], num_tables=5,random_type='normal')
     t1 = time.time()
     lsh.fit(x_train)
     print('total time taken for fitting using tensorflow', time.time() - t1)
@@ -120,8 +120,15 @@ def main_tf():
     print('total time taken for checking accuracy for {} docs is'.format(len(x_test)), time.time() - t1)
 
 
-# main_2()
+main_2()
 main_tf()
+
+
+# tf.test.is_gpu_available()
+# tf.test.gpu_device_name()
+
+
+
 
 #
 # from nearpy import Engine

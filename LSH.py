@@ -4,7 +4,7 @@ import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.datasets import load_digits, load_iris
 from sklearn.metrics import accuracy_score
-
+import time
 
 class lsh:
     def __init__(self, hash_size, data_dim, num_tables):
@@ -35,7 +35,9 @@ class lsh:
         assert data.shape[1] == self.dim, 'dimension of input data is {} and dimension in LSH object is {}'.format(
             data.shape, self.dim)
         for rand_vec, hash_table in zip(self.random_vectors, self.hash_tables):
+            t1 = time.time()
             distance_matrix = np.dot(data, rand_vec.T)
+            print('time taken for matmul ', time.time() - t1)
             euclidean_dist = np.sqrt(np.sum(distance_matrix**2,axis=1))
             keys = list(map(self.make_hash_key, (distance_matrix > 0).astype('int').astype('str')))
             # print('euclidean dist', (distance_matrix > 0).astype('int'))

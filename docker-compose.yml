@@ -1,12 +1,20 @@
-version: '2'
+version: '2.3'
 
 services:
     python_server:
         build:
             dockerfile: dockerfile
             context: .
+        runtime: nvidia
         volumes:
-            - /home/gurmukh/LSH_implementation/docker-vol:/app/docker-vol
-            - ../logs:/app/static
-#        ports:
-#            - '8081:80'
+            - /home/gurmukh/LSH_implementation/:/app/
+
+#version: '2.3'
+#
+#services:
+#  nvsmi:
+#    image: ubuntu:16.04
+#    runtime: nvidia
+#    environment:
+#      - NVIDIA_VISIBLE_DEVICES=all
+#    command: nvidia-smi

@@ -5,10 +5,10 @@ import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.datasets import load_digits, load_iris
 from sklearn.metrics import accuracy_score
-
+import time
 
 class lsh:
-    def __init__(self, hash_size, data_dim, num_tables):
+    def __init__(self, hash_size, data_dim, num_tables,random_type=None):
         self.num_rand_vec = hash_size  # number of buckets will be 2**hash_size eg: 2**2=4 (00,01,10,11)
         self.dim = data_dim
         self.num_tables = num_tables
@@ -17,9 +17,10 @@ class lsh:
         self.random_vectors = []
         for seed in self.seeds:
             np.random.seed(seed)
-            self.random_vectors.append(self.gen_random_vectors(random_type='normal_gpu'))
-            # np.random.randint(low=0, high=255, size=(self.num_rand_vec, self.dim))
-            #
+            if random_type:
+                self.random_vectors.append(self.gen_random_vectors(random_type='normal_gpu'))
+            else:  # normal distribution by default
+                self.random_vectors.append(self.gen_random_vectors())
         print('TENSORFLOW GPU $$$$$$$$$$$$$ available GPU is -->>,',tf.test.gpu_device_name())
 
     def gen_random_vectors(self,random_type=None):
@@ -27,7 +28,7 @@ class lsh:
             # sample from random_normal distribution by default
             return np.random.randn(self.num_rand_vec, self.dim)
         if random_type == 'normal_gpu':
-            return tf.random_normal((self.num_rand_vec, self.dim)).eval(session=tf.compat.v1.Session())
+            return tf.random.normal((self.num_rand_vec, self.dim)).numpy()
         if random_type == 'uniform':
             return np.random.rand(self.num_rand_vec, self.dim)
 
@@ -38,62 +39,51 @@ class lsh:
         assert data.shape[1] == self.dim, 'dimension of input data is {} and dimension in LSH object is {}'.format(
             data.shape, self.dim)
         # sess = tf.Session()
-        sess = tf.InteractiveSession()
-        # data_ph = tf.placeholder("float", [None, self.dim])
-        data_ph = tf.convert_to_tensor(data,dtype=tf.float32)
+        # sess = tf.compat.v1.InteractiveSession()
+        print('fitting')
+        gpu_availability = tf.test.is_gpu_available()
+        print('is GPU availabale ->',gpu_availability)
+        if gpu_availability:
+            session = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(log_device_placement=True))
+            with tf.device("/GPU:0"):
+                tf.compat.v1.disable_eager_execution()
+                print('creating session on gpu, eager execution disabled ')
+                data_ph = tf.compat.v1.placeholder("float", [None, self.dim])
+                rand_hash_vec_ph = tf.compat.v1.placeholder("float", [None, self.dim])
+                distance_matrix_ = tf.matmul(data_ph, tf.transpose(rand_hash_vec_ph))
+                euclidean_dist_ = tf.sqrt(tf.reduce_sum(distance_matrix_ ** 2, axis=1))
+                # data_ph = tf.convert_to_tensor(data,dtype=tf.float32)
 
-        for rand_vec, hash_table in zip(self.random_vectors, self.hash_tables):
-            rand_hash_vec_ph = rand_vec
-            distance_matrix_ = tf.matmul(data_ph, tf.transpose(rand_hash_vec_ph))
-            euclidean_dist_ = tf.sqrt(tf.reduce_sum(distance_matrix_ ** 2, axis=1))
-            distance_matrix,euclidean_dist = sess.run([distance_matrix_, euclidean_dist_],)
-                                                      # feed_dict={data_ph: data,
-                                                      #  rand_hash_vec_ph: rand_vec})
-            keys = list(map(self.make_hash_key, (distance_matrix > 0).astype('int').astype('str')))
-            # print('euclidean dist', (distance_matrix > 0).astype('int'))
+                for rand_vec, hash_table in zip(self.random_vectors, self.hash_tables):
+                    # rand_hash_vec_ph = rand_vec
+                    # distance_matrix_ = tf.matmul(data_ph, tf.transpose(rand_hash_vec_ph))
+                    # euclidean_dist_ = tf.sqrt(tf.reduce_sum(distance_matrix_ ** 2, axis=1))
+                    t1 = time.time()
+                    distance_matrix,euclidean_dist = session.run([distance_matrix_, euclidean_dist_],
+                                                              feed_dict={data_ph: data,
+                                                                         rand_hash_vec_ph: rand_vec})
+                    print('time taken for matmul ', time.time() - t1)
+                    # distance_matrix, euclidean_dist = np.array(distance_matrix_), np.array(euclidean_dist_)
+                    keys = list(map(self.make_hash_key, (distance_matrix > 0).astype('int').astype('str')))
+                    # print('euclidean dist', (distance_matrix > 0).astype('int'))
 
-            # the keys contain string of length=hash_size (2 bits or 3 bits..) for each document.
-            # Eg '00','01','10','11'  for hash_size of 2 bits.
-            unique_keys = set(keys)
-            for key in unique_keys:
-                hash_table[key] = []
-            assert len(keys) == len(euclidean_dist), 'shape of euclidean dist matrix is {} and length of keys list'\
-                                                     ' is {}. They must match'.format(len(euclidean_dist), len(keys))
-            sorted_keys = [(dist,key,key_idx) for dist, key, key_idx in
-                           sorted(zip(list(euclidean_dist),keys,range(len(keys))),  key=lambda pair: pair[0])]
-            # key_idx represents the document index in original data. We need to preserve this info before sorting
-            # the points in one bucket based on their distances from randomly projected vectors.
-            for key in sorted_keys:  # (dist,key,key_idx)
-                hash_table[key[1]].append((key[0],key[2]))  # (distance, doc_idx) <<<<<<<< very important
-                # each key:value pair in hash table looks like this
-                # '01':[(euclidean_dist, document_idx_in_data), () ,() , ......]
-                # '01' is a bucket, in which a document might be present in.
+                    # the keys contain string of length=hash_size (2 bits or 3 bits..) for each document.
+                    # Eg '00','01','10','11'  for hash_size of 2 bits.
+                    unique_keys = set(keys)
+                    for key in unique_keys:
+                        hash_table[key] = []
+                    assert len(keys) == len(euclidean_dist), 'shape of euclidean dist matrix is {} and length of keys list'\
+                                                             ' is {}. They must match'.format(len(euclidean_dist), len(keys))
+                    sorted_keys = [(dist,key,key_idx) for dist, key, key_idx in
+                                   sorted(zip(list(euclidean_dist),keys,range(len(keys))),  key=lambda pair: pair[0])]
+                    # key_idx represents the document index in original data. We need to preserve this info before sorting
+                    # the points in one bucket based on their distances from randomly projected vectors.
+                    for key in sorted_keys:  # (dist,key,key_idx)
+                        hash_table[key[1]].append((key[0],key[2]))  # (distance, doc_idx) <<<<<<<< very important
+                        # each key:value pair in hash table looks like this
+                        # '01':[(euclidean_dist, document_idx_in_data), () ,() , ......]
+                        # '01' is a bucket, in which a document might be present in.
         return 'success'
-
-    # def fit(self, data):
-    #     assert data.shape[1] == self.dim, 'dimension of input data is {} and dimension in LSH object is {}'.format(
-    #         data.shape, self.dim)
-    #     for rand_vec, hash_table in zip(self.random_vectors, self.hash_tables):
-    #         distance_matrix = np.dot(data, rand_vec.T)
-    #         euclidean_dist = np.sqrt(np.sum(distance_matrix**2,axis=1))
-    #         keys = list(map(self.make_hash_key, (distance_matrix > 0).astype('int').astype('str')))
-    #         # the keys contain string of length=hash_size (2 bits or 3 bits..) for each document. Eg '00','01','10','11'
-    #         # for hash_size of 2 bits.
-    #         unique_keys = set(keys)
-    #         for key in unique_keys:
-    #             hash_table[key] = []
-    #         assert len(keys) == len(euclidean_dist), 'shape of euclidean dist matrix is {} and length of keys list is {}.' \
-    #                                             ' They must match'.format(len(euclidean_dist), len(keys))
-    #         sorted_keys = [(dist,key,key_idx) for dist, key, key_idx in
-    #                         sorted(zip(list(euclidean_dist),keys,range(len(keys))),  key=lambda pair: pair[0])]
-    #         # key_idx represents the document index in original data. We need to preserve this info before sorting the
-    #         # points in one bucket based on their distances from randomly projected vectors.
-    #         for key in sorted_keys:  #(dist,key,key_idx)
-    #             hash_table[key[1]].append((key[0],key[2]))  # (distance, doc_idx) <<<<<<<< very important
-    #             # each key:value pair in hash table looks like this
-    #             # '01':[(euclidean_dist, document_idx_in_data), () ,() , ......]
-    #             # '01' is a bucket, in which a document might be present in.
-    #     return 'success'
 
     def sort_buckets_elements(self):
         """
