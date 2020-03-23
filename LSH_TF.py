@@ -83,6 +83,8 @@ class lsh:
                         # each key:value pair in hash table looks like this
                         # '01':[(euclidean_dist, document_idx_in_data), () ,() , ......]
                         # '01' is a bucket, in which a document might be present in.
+        else:
+            print('fitting skipped')
         return 'success'
 
     def sort_buckets_elements(self):

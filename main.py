@@ -3,18 +3,30 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from LSH import lsh as lsh_
 from LSH_TF import lsh as lsh_tf
+from LSH_TF_v2 import lsh as lsh_tf_v2
 import time
 from sklearn.metrics.pairwise import cosine_similarity
 # import nearpy
 
 def load_mnist_data(num_samples,test_size=0.1):
     print('loading data')
-    mnist = pd.read_csv('mnist-in-csv/mnist_train.csv',nrows=num_samples)
+    threshold = 70000
+    if num_samples > threshold:
+        num_iters = num_samples//threshold
+        df_list = []
+        for _ in range(num_iters):
+            mnist = pd.read_csv('mnist-in-csv/mnist_train.csv',nrows=threshold)
+            df_list.append((mnist))
+        mnist = pd.concat(df_list)
+
+    else:
+        mnist = pd.read_csv('mnist-in-csv/mnist_train.csv', nrows=num_samples)
     mnist_data = np.array(mnist[mnist.columns[1:]])
     mnist_labels = np.array(mnist[mnist.columns[0]])
     X_train, X_test, y_train, y_test = split_data(x=mnist_data, y=mnist_labels, test_size=test_size)
     # X_train = X_train / 255
     # X_test = X_test / 255
+    print(X_train.shape,X_test.shape,y_train.shape,y_test.shape)
     return X_train, X_test, y_train, y_test
 
 
@@ -37,6 +49,13 @@ def exhaustive_search(query_doc,candidates):
     return max_sim_idx
 
 
+def exhaustive_search_v2(query_doc,candidates,labels):
+    # print(len(candidates),'length of candidates')
+    sims = cosine_similarity(candidates,query_doc)
+    max_sim_idx = sims.argmax()
+    return candidates[max_sim_idx], labels[max_sim_idx]
+
+
 def candidate_label_distribution(candidates,y_train):
     candidate_label_dist = {i: 0 for i in range(10)}
     for doc_tuple in candidates:
@@ -45,6 +64,17 @@ def candidate_label_distribution(candidates,y_train):
     return candidate_label_dist
 
 
+def check_accuracy_v2(x_test, y_test,X_train,y_train, lsh):
+    acc = 0
+    for x,y in zip(x_test,y_test):
+        candidate_docs,labels = lsh.fast_query(x)
+        if len(candidate_docs) > 0:
+            most_similar_doc,prediction = exhaustive_search_v2(query_doc=x.reshape(1, -1),
+                                                            candidates=candidate_docs, labels=labels)
+            if prediction == y:
+                acc += 1
+    return acc/len(x_test)
+#
 def check_accuracy(x_test, y_test,X_train,y_train, lsh):
     acc = 0
     for x,y in zip(x_test,y_test):
@@ -120,9 +150,22 @@ def main_tf():
     print('total time taken for checking accuracy for {} docs is'.format(len(x_test)), time.time() - t1)
 
 
-main_2()
-main_tf()
+def main_tf_v2():
+    x_train, y_train, x_test, y_test = load_mnist_data(num_samples=7000, test_size=0.1)
+    lsh = lsh_tf_v2(hash_size=8, data_dim=x_train.shape[1], num_tables=5,random_type='normal')
+    t1 = time.time()
+    lsh.fit(x_train,y_train)
+    print('total time taken for fitting using tensorflow', time.time() - t1)
+    t1 = time.time()
+    accuracy = check_accuracy_v2(x_test, y_test,x_train,y_train,lsh)
+    print('accuracy is ', accuracy)
+    print('total time taken for checking accuracy for {} docs is'.format(len(x_test)), time.time() - t1)
 
+
+
+main_2()
+# main_tf()
+main_tf_v2()
 
 # tf.test.is_gpu_available()
 # tf.test.gpu_device_name()

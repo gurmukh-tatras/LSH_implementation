@@ -120,9 +120,9 @@ class lsh:
                 bucket_elements = hash_table[key]
                 # print('bucket_elements', bucket_elements)
                 candidates = self.binary_search(arr=bucket_elements,query_distance=distance,max_k=5)
-
+                if candidates and len(candidates) >0:
                 # print('candidates',candidates)
-                result.extend(candidates)
+                    result.extend(candidates)
         result_doc_idexes = [tupl[1] for tupl in result]
         return list(set(result_doc_idexes))
 
